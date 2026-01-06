@@ -2,6 +2,7 @@
 <html lang="en" dir="ltr">
 <head>
   <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Ehsan Moradi — Resume</title>
@@ -13,6 +14,9 @@
     <p>Email: <a href="mailto:ehsan.moradi.it@gmail.com">ehsan.moradi.it@gmail.com</a></p>
     <p>GitHub: <a href="https://github.com/Ehsan-M330">github.com/Ehsan-M330</a></p>
     <p>Phone: +98 9354439479</p>
+    <div id="online-users" style="margin-top: 10px; padding: 8px 12px; background: rgba(11,95,255,0.1); border-radius: 8px; display: inline-block;">
+      <span style="color: var(--accent); font-weight: 600;">👥 کاربران آنلاین: <span id="online-count">0</span></span>
+    </div>
   </header>
 
   <main>
@@ -86,12 +90,155 @@
 
     <section id="education">
       <h2>Education</h2>
-      <p>Bachelor’s Degree in Computer Engineering — Shahid Chamran University, Ahvaz (2021–Present)</p>
+      <p>Bachelor's Degree in Computer Engineering — Shahid Chamran University, Ahvaz (2021–Present)</p>
+    </section>
+
+    <section id="contact-form">
+      <h2>Request a Project</h2>
+      <form id="project-request-form">
+        <div class="form-group">
+          <label for="name">Name *</label>
+          <input type="text" id="name" name="name" required>
+        </div>
+        <div class="form-group">
+          <label for="email">Email *</label>
+          <input type="email" id="email" name="email" required>
+        </div>
+        <div class="form-group">
+          <label for="phone">Phone</label>
+          <input type="tel" id="phone" name="phone">
+        </div>
+        <div class="form-group">
+          <label for="project-type">Project Type</label>
+          <select id="project-type" name="project_type">
+            <option value="">Select...</option>
+            <option value="web-development">Web Development</option>
+            <option value="api-development">API Development</option>
+            <option value="backend-service">Backend Service</option>
+            <option value="database-design">Database Design</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="budget-range">Budget Range</label>
+          <select id="budget-range" name="budget_range">
+            <option value="">Select...</option>
+            <option value="under-500">Under $500</option>
+            <option value="500-1000">$500 - $1,000</option>
+            <option value="1000-5000">$1,000 - $5,000</option>
+            <option value="5000-10000">$5,000 - $10,000</option>
+            <option value="over-10000">Over $10,000</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="timeline">Timeline</label>
+          <select id="timeline" name="timeline">
+            <option value="">Select...</option>
+            <option value="asap">ASAP</option>
+            <option value="1-month">Within 1 month</option>
+            <option value="2-3-months">2-3 months</option>
+            <option value="3-6-months">3-6 months</option>
+            <option value="flexible">Flexible</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="project-description">Project Description *</label>
+          <textarea id="project-description" name="project_description" rows="5" required></textarea>
+        </div>
+        <button type="submit">Submit Request</button>
+        <div id="form-message" style="margin-top: 15px;"></div>
+      </form>
     </section>
   </main>
 
   <footer>
     <p>Last updated: 2025-11-01</p>
   </footer>
+
+  <script>
+    // WebSocket connection for online users
+    const WS_BASE_URL = window.CONFIG?.WS_BASE_URL || 'ws://localhost:8000';
+    const API_BASE_URL = window.CONFIG?.API_BASE_URL || 'http://localhost:8000';
+    let ws = null;
+    
+    function connectWebSocket() {
+      try {
+        ws = new WebSocket(`${WS_BASE_URL}/ws/online-users`);
+        
+        ws.onopen = () => {
+          console.log('WebSocket connected');
+        };
+        
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          document.getElementById('online-count').textContent = data.count;
+        };
+        
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+        };
+        
+        ws.onclose = () => {
+          console.log('WebSocket disconnected, reconnecting...');
+          setTimeout(connectWebSocket, 3000);
+        };
+      } catch (error) {
+        console.error('Failed to connect WebSocket:', error);
+        setTimeout(connectWebSocket, 3000);
+      }
+    }
+    
+    // Connect on page load
+    connectWebSocket();
+    
+    // Form submission
+    document.getElementById('project-request-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = {
+        name: document.getElementById('name').value,
+        email: document.getElementById('email').value,
+        phone: document.getElementById('phone').value || null,
+        project_type: document.getElementById('project-type').value || null,
+        budget_range: document.getElementById('budget-range').value || null,
+        timeline: document.getElementById('timeline').value || null,
+        project_description: document.getElementById('project-description').value
+      };
+      
+      const messageDiv = document.getElementById('form-message');
+      messageDiv.textContent = 'Submitting...';
+      messageDiv.style.color = '#667eea';
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/project-request`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
+        
+        if (response.ok) {
+          messageDiv.textContent = '✓ Request submitted successfully!';
+          messageDiv.style.color = '#27ae60';
+          document.getElementById('project-request-form').reset();
+        } else {
+          const error = await response.json();
+          messageDiv.textContent = '✗ Error: ' + (error.detail || 'Failed to submit request');
+          messageDiv.style.color = '#e74c3c';
+        }
+      } catch (error) {
+        messageDiv.textContent = '✗ Error: Could not connect to server. Make sure the backend is running.';
+        messageDiv.style.color = '#e74c3c';
+      }
+    });
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (ws) {
+        ws.close();
+      }
+    });
+  </script>
 </body>
 </html>
